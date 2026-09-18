@@ -134,7 +134,7 @@ ai-budget-monitoring-system/
 ├── docs/
 │   ├── API_DOCUMENTATION.md # Complete REST API specifications
 │   ├── DATABASE_SCHEMA.md   # Schema tables & entity relationship diagrams
-│   ├── DEPLOYMENT.md        # Render, AWS, Azure, Docker deployment instructions
+│   ├── DEPLOYMENT.md        # Git, GitHub Actions CI/CD, and GitHub Pages deployment guide
 │   └── TESTING.md           # Automated and manual verification guide
 │
 └── README.md

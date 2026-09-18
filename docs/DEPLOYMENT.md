@@ -1,94 +1,125 @@
-# Cloud & Production Deployment Guide
+# Git & GitHub Deployment Guide
 
-This document provides complete instructions for deploying the **AI-Based Budget Utilization Monitoring System** on cloud platforms such as **Render**, **AWS (EC2 / ECS / S3)**, and **Azure (App Service)**.
+This document provides complete instructions for deploying the **AI-Based Budget Utilization Monitoring System** using **Git**, **GitHub Actions (CI/CD)**, **GitHub Pages**, and **Git-based Server Hooks**.
 
 ---
 
-## 1. Environment Variables Configuration
+## 1. Git Repository Initialization & Setup
 
-Create a `.env` file in the `backend/` directory configured for production:
+### Step 1: Initialize Git Repository
+Initialize the repository locally and commit project assets:
+```bash
+git init
+git add .
+git commit -m "feat: initial commit of AI Budget Utilization Monitoring System"
+```
 
-```env
-PORT=5000
-NODE_ENV=production
-MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/ai_budget_monitoring?retryWrites=true&w=majority
-JWT_SECRET=your_ultra_secure_jwt_random_secret_string_here_min_32_chars
-JWT_EXPIRES_IN=7d
-CLIENT_URL=https://your-frontend-domain.com
-UPLOAD_DIR=uploads
+### Step 2: Link Remote GitHub Repository
+Create a repository on [GitHub](https://github.com/new) and link your local working tree:
+```bash
+git remote add origin https://github.com/<your-username>/<your-repo-name>.git
+git branch -M main
+git push -u origin main
 ```
 
 ---
 
-## 2. Deploying on Render (Unified Full-Stack Deployment)
+## 2. Automated CI/CD Deployment via GitHub Actions
 
-### Backend Web Service
-1. Create a new **Web Service** on [Render](https://render.com).
-2. Connect your Git repository.
-3. Configure the settings:
-   - **Root Directory**: `backend`
-   - **Environment**: `Node`
-   - **Build Command**: `npm install && npm run build`
-   - **Start Command**: `npm start`
-4. Add the Environment Variables (`MONGODB_URI`, `JWT_SECRET`, etc.).
-5. Render will automatically deploy the API at `https://your-api.onrender.com`.
+The repository includes a ready-to-use GitHub Actions workflow located at [`.github/workflows/deploy.yml`](file:///.github/workflows/deploy.yml).
 
-### Frontend Static Site
-1. In `frontend/src/app/core/services/api.service.ts` and `auth.service.ts`, set the production API base URL or proxy.
-2. Create a new **Static Site** on Render.
-3. Configure settings:
-   - **Root Directory**: `frontend`
-   - **Build Command**: `npm install && npm run build`
-   - **Publish Directory**: `dist/ai-budget-monitoring-frontend/browser`
-4. Configure Rewrite Rule for Single-Page Application (SPA):
-   - **Source**: `/*`
-   - **Destination**: `/index.html`
+### Workflow Triggers
+Whenever code is pushed or merged into `main` / `master`, GitHub Actions automatically:
+1. **Backend Pipeline**:
+   - Checks out the repository via Git.
+   - Installs Node.js dependencies (`npm install`).
+   - Runs automated Jest verification tests (`npm test`).
+   - Compiles TypeScript to production JavaScript (`npm run build`).
+2. **Frontend Pipeline**:
+   - Checks out the repository via Git.
+   - Installs Angular frontend dependencies (`npm install`).
+   - Builds optimized Angular production bundles (`npm run build`).
 
----
-
-## 3. Containerized Deployment with Docker
-
-### Backend Dockerfile (`backend/Dockerfile`)
-```dockerfile
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM node:20-alpine AS runner
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY --from=builder /app/dist ./dist
-EXPOSE 5000
-CMD ["node", "dist/server.js"]
-```
-
-### Frontend Dockerfile (`frontend/Dockerfile`)
-```dockerfile
-FROM node:20-alpine AS build
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM nginx:alpine
-COPY --from=build /app/dist/ai-budget-monitoring-frontend/browser /usr/share/nginx/html
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
-```
+### Configuring GitHub Secrets & Variables
+To provide database and authentication credentials securely in GitHub:
+1. Navigate to your GitHub Repository **Settings** > **Secrets and variables** > **Actions**.
+2. Click **New repository secret** and add:
+   - `MONGODB_URI`: MongoDB connection string (e.g. `mongodb+srv://<user>:<password>@cluster0.mongodb.net/ai_budget_monitoring`)
+   - `JWT_SECRET`: Secure random JWT secret key (min 32 characters)
+   - `CLIENT_URL`: Domain URL of the client frontend
+   - `NODE_ENV`: `production`
 
 ---
 
-## 4. Database Setup: MongoDB Atlas
-1. Create a free cluster on [MongoDB Atlas](https://www.mongodb.com/cloud/atlas).
-2. Create a Database User with read/write privileges.
-3. In Network Access, whitelist IP `0.0.0.0/0` or your cloud server IP.
-4. Copy the connection string and paste it into `MONGODB_URI`.
-5. Run the seed script to populate realistic demonstration data:
+## 3. Frontend Deployment to GitHub Pages
+
+You can host the Angular single-page frontend directly on **GitHub Pages**:
+
+### Option A: Using Angular CLI Deploy to GitHub Pages
+```bash
+cd frontend
+# Build with GitHub Pages base-href
+npx ng build --configuration production --base-href /<your-repo-name>/
+
+# Deploy using angular-cli-ghpages
+npx angular-cli-ghpages --dir=dist/ai-budget-monitoring-frontend/browser
+```
+
+### Option B: Automated GitHub Pages via GitHub Actions
+Add the GitHub Pages deployment step to `.github/workflows/deploy.yml` with the built `dist/ai-budget-monitoring-frontend/browser` folder.
+
+---
+
+## 4. Git-Based Server Deployment (Self-Hosted / VPS with Git Hooks)
+
+For deploying backend and frontend on your server using Git:
+
+### Step 1: Clone Repository on the Server
+```bash
+git clone https://github.com/<your-username>/<your-repo-name>.git /var/www/budget-system
+cd /var/www/budget-system
+```
+
+### Step 2: Automated Deployment Script (`deploy.sh`)
+```bash
+#!/bin/bash
+set -e
+
+echo "📥 Pulling latest changes from Git repository..."
+git pull origin main
+
+echo "⚙️ Building Backend..."
+cd backend
+npm install --production=false
+npm run build
+pm2 restart budget-backend || pm2 start dist/server.js --name "budget-backend"
+
+echo "🎨 Building Frontend..."
+cd ../frontend
+npm install
+npm run build
+
+echo "✅ Git deployment complete!"
+```
+
+### Step 3: Git Post-Receive Hook (Instant Push-to-Deploy)
+Set up a bare Git repository on your server with a `post-receive` hook to trigger automatic updates whenever you run `git push live main`:
+```bash
+#!/bin/bash
+GIT_WORK_TREE=/var/www/budget-system git checkout -f
+cd /var/www/budget-system
+bash deploy.sh
+```
+
+---
+
+## 5. Database Connection: MongoDB Atlas / Local MongoDB
+1. Create a database on [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) or run a local instance.
+2. Ensure network access whitelists your server IP.
+3. Configure `MONGODB_URI` in your backend `.env` or GitHub Secrets.
+4. Populate demonstration data:
    ```bash
+   cd backend
    npm run seed
    ```
+
