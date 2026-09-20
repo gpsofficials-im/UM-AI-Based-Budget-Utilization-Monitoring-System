@@ -28,6 +28,15 @@ uploads/
 *.jpg
 *.jpeg
 
+# Firebase
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+.runtimeconfig.json
+*serviceAccountKey*.json
+*credentials*.json
+
 # IDE & OS
 .idea/
 .vscode/
@@ -38,3 +47,4 @@ uploads/
 *.sw?
 .DS_Store
 Thumbs.db
+

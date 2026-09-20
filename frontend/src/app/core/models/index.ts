@@ -1,11 +1,13 @@
 export type UserRole = 'ADMIN' | 'FINANCE_OFFICER' | 'DEPARTMENT_HEAD';
 
 export interface User {
-  id: string;
-  _id?: string;
+  id?: string;
+  _id: string;
+  uid?: string;
   name: string;
   email: string;
   role: UserRole;
+  departmentId?: string | null;
   department?: Department | string | null;
   status: 'ACTIVE' | 'INACTIVE';
   lastLogin?: string;
@@ -13,6 +15,7 @@ export interface User {
 }
 
 export interface Department {
+  id?: string;
   _id: string;
   code: string;
   name: string;
@@ -40,10 +43,12 @@ export type BudgetQuarter = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'ANNUAL';
 export type BudgetStatus = 'DRAFT' | 'APPROVED' | 'ALLOCATED' | 'REVISED' | 'CLOSED';
 
 export interface Budget {
+  id?: string;
   _id: string;
   budgetId: string;
   financialYear: string;
   quarter: BudgetQuarter;
+  departmentId?: string;
   department: Department;
   projectScheme: string;
   allocatedAmount: number;
@@ -75,16 +80,20 @@ export type ExpenseStatus = 'RECORDED' | 'VERIFIED' | 'FLAGGED' | 'CANCELLED';
 
 export interface SupportingDocument {
   originalName: string;
-  filename: string;
-  path: string;
+  filename?: string;
+  path?: string;
+  downloadUrl?: string;
   mimeType: string;
   size: number;
 }
 
 export interface Expenditure {
+  id?: string;
   _id: string;
   transactionId: string;
+  budgetId?: string;
   budget: Budget;
+  departmentId?: string;
   department: Department;
   amount: number;
   category: ExpenseCategory;
@@ -107,9 +116,12 @@ export type AlertSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type AlertStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
 
 export interface Alert {
+  id?: string;
   _id: string;
   alertId: string;
+  departmentId?: string;
   department: Department;
+  budgetId?: string;
   budget?: Budget;
   alertType: AlertType;
   severity: AlertSeverity;
@@ -127,6 +139,7 @@ export interface Alert {
 }
 
 export interface AuditLog {
+  id?: string;
   _id: string;
   user?: User;
   userEmail: string;
@@ -142,6 +155,7 @@ export interface AuditLog {
 }
 
 export interface SystemConfiguration {
+  id?: string;
   _id?: string;
   underUtilizationThresholdPercent: number;
   underUtilizationTimeElapsedThresholdPercent: number;
@@ -167,3 +181,5 @@ export interface DashboardSummary {
   underUtilizedCount: number;
   overspendingCount: number;
 }
+
+

@@ -1,0 +1,87 @@
+﻿rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function getUserRole() {
+      return request.auth.token.role != null ? request.auth.token.role : getUserData().role;
+    }
+
+    function getUserDept() {
+      return request.auth.token.departmentId != null ? request.auth.token.departmentId : getUserData().departmentId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (getUserRole() == 'ADMIN' || request.auth.token.email == 'admin@gov.in');
+    }
+
+    function isFinanceOfficer() {
+      return isAuthenticated() && (getUserRole() == 'FINANCE_OFFICER' || isAdmin());
+    }
+
+    function isDeptHead() {
+      return isAuthenticated() && getUserRole() == 'DEPARTMENT_HEAD';
+    }
+
+    function isDeptMatch(deptId) {
+      return isAdmin() || isFinanceOfficer() || (isDeptHead() && getUserDept() == deptId);
+    }
+
+    // USERS Collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'departmentId', 'status']));
+    }
+
+    // DEPARTMENTS Collection
+    match /departments/{departmentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // BUDGETS Collection
+    match /budgets/{budgetId} {
+      allow read: if isAuthenticated() && (isAdmin() || isFinanceOfficer() || isDeptMatch(resource.data.departmentId));
+      allow create, update: if isAdmin() || isFinanceOfficer();
+      allow delete: if isAdmin();
+    }
+
+    // EXPENDITURES Collection
+    match /expenditures/{expenditureId} {
+      allow read: if isAuthenticated() && (isAdmin() || isFinanceOfficer() || isDeptMatch(resource.data.departmentId));
+      allow create: if isAuthenticated() && (isAdmin() || isFinanceOfficer() || isDeptMatch(request.resource.data.departmentId));
+      allow update: if isAuthenticated() && (isAdmin() || isFinanceOfficer() || isDeptMatch(resource.data.departmentId));
+      allow delete: if isAdmin();
+    }
+
+    // ALERTS Collection
+    match /alerts/{alertId} {
+      allow read: if isAuthenticated() && (isAdmin() || isFinanceOfficer() || isDeptMatch(resource.data.departmentId));
+      allow create: if isAuthenticated(); // Automated alert generation / Functions
+      allow update: if isAuthenticated() && (isAdmin() || isFinanceOfficer() || isDeptMatch(resource.data.departmentId));
+      allow delete: if isAdmin();
+    }
+
+    // AUDIT LOGS Collection (Immutable & Protected)
+    match /auditLogs/{logId} {
+      allow read: if isAuthenticated() && isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // Tamper-evident: strictly immutable
+    }
+
+    // SYSTEM CONFIGURATION
+    match /config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

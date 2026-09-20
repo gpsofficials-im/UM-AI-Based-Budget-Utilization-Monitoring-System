@@ -1,6 +1,6 @@
 # AI-Based Budget Utilization Monitoring System
 
-A full-stack **MEAN (MongoDB, Express, Angular, Node.js)** enterprise web platform built for government ministries, public sector undertakings, and enterprises to track budget allocations, monitor public expenditures, compute utilization bands, execute rule-based anomaly detection (under-utilization, overspending, spending spikes, budget deviations), manage alerts, generate audit logs, and export reports in PDF and CSV.
+A serverless enterprise web platform built with **Angular 19** and **Firebase** (Firebase Authentication, Cloud Firestore, Cloud Functions, and Firebase Storage) for government ministries, public sector undertakings, and enterprises to track budget allocations, monitor public expenditures, compute utilization bands, execute AI/analytical anomaly detection (under-utilization, overspending, spending spikes, budget deviations), manage alerts, generate audit logs, and export compliance reports in PDF and CSV.
 
 ---
 
@@ -8,7 +8,7 @@ A full-stack **MEAN (MongoDB, Express, Angular, Node.js)** enterprise web platfo
 
 * **Executive Multi-KPI Dashboard**: 8 real-time KPI metrics & 5 Chart.js dynamic visualizations (Budget vs Expenditure, Department Utilization Rates, Monthly Fiscal Timeline, Disbursement Categories, and Anomaly Severity Distribution).
 * **Budget Allocation Management**: Comprehensive Annual and Quarterly (`Q1`, `Q2`, `Q3`, `Q4`) budget allocations with safe financial arithmetic and status lifecycles (`ALLOCATED`, `APPROVED`, `REVISED`, `DRAFT`, `CLOSED`).
-* **Expenditure Ledger & Audit Trails**: Real-time disbursement recording with receipt document attachment (PDF, JPG, PNG) and budget cap checks.
+* **Expenditure Ledger & Receipt Storage**: Real-time disbursement recording with Firebase Storage document attachment (PDF, JPG, PNG) and budget cap checks.
 * **AI & Analytical Anomaly Detection Engine**:
   * **Under-Utilization**: Flags schemes where >= 70% of the financial period has elapsed with < 40% funds deployed.
   * **Overspending**: Critical alert triggered when total actual expenditures breach approved budget caps.
@@ -19,8 +19,8 @@ A full-stack **MEAN (MongoDB, Express, Angular, Node.js)** enterprise web platfo
   * `ADMIN`: Full access to users, departments, budgets, audit logs, and anomaly detection thresholds.
   * `FINANCE_OFFICER`: Manages allocations, disbursements, receipts, and resolves financial alerts.
   * `DEPARTMENT_HEAD`: Scoped access strictly to assigned department's budget, expenditures, and alerts.
-* **Compliance Reporting**: Live data preview with one-click export to **PDF** and **CSV**.
-* **Tamper-Evident Audit Logging**: Chronological immutable tracking of all logins, allocations, expenditures, and threshold changes with state diff snapshots.
+* **Compliance Reporting**: Live data preview with one-click export to **PDF** (via jsPDF) and **CSV**.
+* **Tamper-Evident Audit Logging**: Chronological immutable Firestore collection tracking all logins, allocations, expenditures, and threshold changes.
 
 ---
 
@@ -30,34 +30,33 @@ A full-stack **MEAN (MongoDB, Express, Angular, Node.js)** enterprise web platfo
 | :--- | :--- |
 | **Frontend** | Angular 19 (Standalone Components, Signals, Reactive Forms), TypeScript, TailwindCSS, Remixicon |
 | **Visualizations** | Chart.js |
-| **Backend API** | Node.js, Express.js, TypeScript |
-| **Database & ODM** | MongoDB, Mongoose (with embedded MongoMemoryServer fallback for zero-config testing) |
-| **Security & Auth** | JWT (JSON Web Tokens), bcryptjs password hashing, Helmet, CORS |
-| **File Storage** | Multer |
-| **Reporting** | PDFKit (PDF generation), json2csv (CSV generation) |
-| **Testing** | Jest, Supertest, ts-jest |
+| **Authentication** | Firebase Authentication (Email/Password & Demo accounts) |
+| **Database** | Google Cloud Firestore (NoSQL, Real-time collections, Security Rules) |
+| **Storage** | Firebase Storage (Receipt attachments: PDF, PNG, JPG, WebP) |
+| **Backend / Functions** | Firebase Cloud Functions (Node.js 20, TypeScript) |
+| **Hosting & CI/CD** | GitHub Pages & Firebase Hosting with GitHub Actions CI/CD |
 
 ---
 
 ## 🚀 Quick Start Guide
 
 ### Prerequisites
-* **Node.js**: v18+ (Tested on v24.15.0)
+* **Node.js**: v18+ (Tested on v20 & v22)
 * **npm**: v9+
+* **Firebase CLI**: `npm install -g firebase-tools`
 
-### 1. Clone & Setup Backend
+### 1. Setup Angular Frontend
 ```bash
-cd backend
-npm install
-npm run seed     # Seeds realistic demonstration government datasets & test accounts
-npm run dev      # Starts API server on http://localhost:5000
+cd frontend
+npm install --legacy-peer-deps
+npm start        # Launches Angular dev server on http://localhost:4200
 ```
 
-### 2. Setup Frontend
+### 2. Setup Firebase Cloud Functions (Optional / Backend)
 ```bash
-cd ../frontend
+cd functions
 npm install
-npm start        # Launches Angular dev server on http://localhost:4200
+npm run build
 ```
 
 Open your browser at `http://localhost:4200` to access the portal.
@@ -66,7 +65,7 @@ Open your browser at `http://localhost:4200` to access the portal.
 
 ## 🔑 Demonstration Accounts
 
-The database comes pre-seeded with realistic government sample datasets and demonstration accounts:
+The system comes pre-configured with 5 role-based demonstration accounts for instant testing:
 
 | Role | Email | Password | Scope |
 | :--- | :--- | :--- | :--- |
@@ -76,26 +75,7 @@ The database comes pre-seeded with realistic government sample datasets and demo
 | **Dept Head (Health / MOHFW)** | `depthead.health@gov.in` | `Dept@123` | Scoped to Dept of Health & Family Welfare (Overspending Demo) |
 | **Dept Head (Higher Education)**| `depthead.edu@gov.in` | `Dept@123` | Scoped to Dept of Higher Education (Under-utilization Demo) |
 
-*(Quick-fill buttons for each role are also available directly on the login page for instant testing)*
-
----
-
-## 🧪 Running Automated Tests
-
-Run the complete backend test suite:
-```bash
-cd backend
-npm test
-```
-
-Build production bundles:
-```bash
-# Backend
-cd backend && npm run build
-
-# Frontend
-cd frontend && npm run build
-```
+*(Quick-fill demo buttons are available directly on the login screen for 1-click access)*
 
 ---
 
@@ -104,37 +84,40 @@ cd frontend && npm run build
 ```
 ai-budget-monitoring-system/
 │
-├── backend/
-│   ├── src/
-│   │   ├── config/          # DB connection & Multer configuration
-│   │   ├── controllers/     # Auth, Dashboard, Budget, Expenditure, Alert, User, Report, Audit
-│   │   ├── detection/       # Analytical Anomaly Detection Engine
-│   │   ├── middleware/      # Auth, RBAC, Department scope, Audit logger, Error handling
-│   │   ├── models/          # Mongoose schemas (User, Dept, Budget, Expenditure, Alert, Audit, Config)
-│   │   ├── routes/          # Express API route declarations
-│   │   ├── seed/            # Demonstration dataset seeder (npm run seed)
-│   │   ├── services/        # Utilization math engine & PDF/CSV report services
-│   │   ├── __tests__/       # Jest & Supertest automated verification suites
-│   │   └── server.ts        # Server entry point
-│   ├── package.json
-│   └── tsconfig.json
+├── .github/
+│   └── workflows/deploy.yml # GitHub Actions CI/CD to GitHub Pages
+│
+├── firebase.json            # Firebase Hosting, Functions, Firestore, Storage, Emulators
+├── firestore.rules          # Firestore Security Rules (RBAC, Audit immutability)
+├── firestore.indexes.json   # Firestore Composite Indexes
+├── storage.rules            # Firebase Storage Security Rules
 │
 ├── frontend/
 │   ├── src/
 │   │   ├── app/
-│   │   │   ├── core/        # Auth, API, Interceptor, Route Guards, Models
+│   │   │   ├── core/        # AuthService, FirestoreService, StorageService, ApiService, Guards
 │   │   │   ├── shared/      # Navbar, Sidebar, KPI Card, Toast components
 │   │   │   ├── features/    # Dashboard, Budgets, Expenditures, Alerts, Departments, Users, Reports, Audit
 │   │   │   ├── layout/      # Main responsive layout wrapper
 │   │   │   └── app.routes.ts# Angular route definitions
+│   │   ├── environments/    # Firebase config environments (dev & prod)
+│   │   ├── public/404.html  # SPA routing fallback for GitHub Pages
 │   │   └── styles.css       # TailwindCSS and theme styles
 │   ├── package.json
 │   └── angular.json
 │
+├── functions/
+│   ├── src/
+│   │   ├── anomaly/         # Serverless Anomaly Engine (4 analytical rules)
+│   │   ├── services/        # Utilization service & Report generator
+│   │   ├── seed/            # Firestore dataset seeder
+│   │   └── index.ts         # Cloud Function endpoints & callables
+│   ├── package.json
+│   └── tsconfig.json
+│
 ├── docs/
-│   ├── API_DOCUMENTATION.md # Complete REST API specifications
-│   ├── DATABASE_SCHEMA.md   # Schema tables & entity relationship diagrams
-│   ├── DEPLOYMENT.md        # Git, GitHub Actions CI/CD, and GitHub Pages deployment guide
+│   ├── DEPLOYMENT.md        # Complete Firebase and GitHub Pages deployment guide
+│   ├── DATABASE_SCHEMA.md   # Firestore Collections schema & structures
 │   └── TESTING.md           # Automated and manual verification guide
 │
 └── README.md

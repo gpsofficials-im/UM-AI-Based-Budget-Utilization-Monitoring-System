@@ -1,125 +1,172 @@
-# Git & GitHub Deployment Guide
+# Deployment Guide: Firebase & GitHub Pages Architecture
 
-This document provides complete instructions for deploying the **AI-Based Budget Utilization Monitoring System** using **Git**, **GitHub Actions (CI/CD)**, **GitHub Pages**, and **Git-based Server Hooks**.
-
----
-
-## 1. Git Repository Initialization & Setup
-
-### Step 1: Initialize Git Repository
-Initialize the repository locally and commit project assets:
-```bash
-git init
-git add .
-git commit -m "feat: initial commit of AI Budget Utilization Monitoring System"
-```
-
-### Step 2: Link Remote GitHub Repository
-Create a repository on [GitHub](https://github.com/new) and link your local working tree:
-```bash
-git remote add origin https://github.com/<your-username>/<your-repo-name>.git
-git branch -M main
-git push -u origin main
-```
+This document provides end-to-end instructions for deploying the **AI-Based Budget Utilization Monitoring System** using **Firebase Serverless Architecture** (Authentication, Cloud Firestore, Firebase Storage, Cloud Functions) and **GitHub Pages / Firebase Hosting**.
 
 ---
 
-## 2. Automated CI/CD Deployment via GitHub Actions
+## 1. Prerequisites & CLI Setup
 
-The repository includes a ready-to-use GitHub Actions workflow located at [`.github/workflows/deploy.yml`](file:///.github/workflows/deploy.yml).
-
-### Workflow Triggers
-Whenever code is pushed or merged into `main` / `master`, GitHub Actions automatically:
-1. **Backend Pipeline**:
-   - Checks out the repository via Git.
-   - Installs Node.js dependencies (`npm install`).
-   - Runs automated Jest verification tests (`npm test`).
-   - Compiles TypeScript to production JavaScript (`npm run build`).
-2. **Frontend Pipeline**:
-   - Checks out the repository via Git.
-   - Installs Angular frontend dependencies (`npm install`).
-   - Builds optimized Angular production bundles (`npm run build`).
-
-### Configuring GitHub Secrets & Variables
-To provide database and authentication credentials securely in GitHub:
-1. Navigate to your GitHub Repository **Settings** > **Secrets and variables** > **Actions**.
-2. Click **New repository secret** and add:
-   - `MONGODB_URI`: MongoDB connection string (e.g. `mongodb+srv://<user>:<password>@cluster0.mongodb.net/ai_budget_monitoring`)
-   - `JWT_SECRET`: Secure random JWT secret key (min 32 characters)
-   - `CLIENT_URL`: Domain URL of the client frontend
-   - `NODE_ENV`: `production`
+1. **Node.js**: v18 or higher (Recommended: v20 or v22)
+2. **Angular CLI**: v19 (`npm install -g @angular/cli`)
+3. **Firebase CLI**:
+   ```bash
+   npm install -g firebase-tools
+   ```
+4. **Firebase Login**:
+   ```bash
+   firebase login
+   ```
 
 ---
 
-## 3. Frontend Deployment to GitHub Pages
+## 2. Firebase Project Configuration
 
-You can host the Angular single-page frontend directly on **GitHub Pages**:
+### Step 1: Create a Firebase Project
+1. Open the [Firebase Console](https://console.firebase.google.com/).
+2. Click **Add Project** and name it `ai-budget-monitoring-system` (or your preferred name).
+3. Enable **Google Analytics** (optional) and create the project.
 
-### Option A: Using Angular CLI Deploy to GitHub Pages
-```bash
-cd frontend
-# Build with GitHub Pages base-href
-npx ng build --configuration production --base-href /<your-repo-name>/
+### Step 2: Enable Firebase Services
+1. **Firebase Authentication**:
+   - Go to **Build > Authentication > Get Started**.
+   - Enable **Email/Password** provider (Email link is optional, Email/Password is required).
+2. **Cloud Firestore**:
+   - Go to **Build > Firestore Database > Create Database**.
+   - Start in **Production mode** (Security rules are provided in `firestore.rules`).
+   - Select your preferred region (e.g., `asia-south1` or `us-central1`).
+3. **Firebase Storage**:
+   - Go to **Build > Storage > Get Started**.
+   - Start in **Production mode** (Security rules are provided in `storage.rules`).
+4. **Cloud Functions**:
+   - Upgrade your Firebase project to the **Blaze (Pay as you go)** plan (required for Cloud Functions).
 
-# Deploy using angular-cli-ghpages
-npx angular-cli-ghpages --dir=dist/ai-budget-monitoring-frontend/browser
+### Step 3: Configure Frontend Environments
+1. In Firebase Console, go to **Project Settings** > **General** > **Your apps** > Add Web App (`</>`).
+2. Copy the `firebaseConfig` object and paste it into:
+   - `frontend/src/environments/environment.ts` (Development)
+   - `frontend/src/environments/environment.prod.ts` (Production)
+
+Example format:
+```typescript
+export const environment = {
+  production: true,
+  firebase: {
+    apiKey: "AIzaSy...",
+    authDomain: "ai-budget-monitoring-system.firebaseapp.com",
+    projectId: "ai-budget-monitoring-system",
+    storageBucket: "ai-budget-monitoring-system.appspot.com",
+    messagingSenderId: "1234567890",
+    appId: "1:1234567890:web:abcdef"
+  }
+};
 ```
-
-### Option B: Automated GitHub Pages via GitHub Actions
-Add the GitHub Pages deployment step to `.github/workflows/deploy.yml` with the built `dist/ai-budget-monitoring-frontend/browser` folder.
 
 ---
 
-## 4. Git-Based Server Deployment (Self-Hosted / VPS with Git Hooks)
+## 3. Deploying Firebase Rules, Indexes & Cloud Functions
 
-For deploying backend and frontend on your server using Git:
-
-### Step 1: Clone Repository on the Server
+### Step 1: Link Local Repository to Firebase Project
 ```bash
-git clone https://github.com/<your-username>/<your-repo-name>.git /var/www/budget-system
-cd /var/www/budget-system
+# In the project root directory
+firebase use ai-budget-monitoring-system
 ```
 
-### Step 2: Automated Deployment Script (`deploy.sh`)
+### Step 2: Build Cloud Functions
 ```bash
-#!/bin/bash
-set -e
-
-echo "📥 Pulling latest changes from Git repository..."
-git pull origin main
-
-echo "⚙️ Building Backend..."
-cd backend
-npm install --production=false
-npm run build
-pm2 restart budget-backend || pm2 start dist/server.js --name "budget-backend"
-
-echo "🎨 Building Frontend..."
-cd ../frontend
+cd functions
 npm install
 npm run build
-
-echo "✅ Git deployment complete!"
+cd ..
 ```
 
-### Step 3: Git Post-Receive Hook (Instant Push-to-Deploy)
-Set up a bare Git repository on your server with a `post-receive` hook to trigger automatic updates whenever you run `git push live main`:
+### Step 3: Deploy Firestore Security Rules & Indexes
 ```bash
-#!/bin/bash
-GIT_WORK_TREE=/var/www/budget-system git checkout -f
-cd /var/www/budget-system
-bash deploy.sh
+firebase deploy --only firestore:rules,firestore:indexes
+```
+
+### Step 4: Deploy Storage Security Rules
+```bash
+firebase deploy --only storage
+```
+
+### Step 5: Deploy Cloud Functions
+```bash
+firebase deploy --only functions
+```
+
+### Step 6: Seed Initial Demonstration Data
+You can seed demonstration data either via the Cloud Function endpoint or by calling the `seedInitialData` callable function:
+```bash
+# Via Firebase CLI or by executing the seed function
+firebase functions:shell
+> seedInitialData()
 ```
 
 ---
 
-## 5. Database Connection: MongoDB Atlas / Local MongoDB
-1. Create a database on [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) or run a local instance.
-2. Ensure network access whitelists your server IP.
-3. Configure `MONGODB_URI` in your backend `.env` or GitHub Secrets.
-4. Populate demonstration data:
+## 4. Frontend Deployment Options
+
+### Option A: Deploy to GitHub Pages (Automated CI/CD via GitHub Actions)
+
+The repository includes a GitHub Actions workflow at `.github/workflows/deploy.yml`.
+
+1. **Repository Settings**:
+   - In your GitHub repository, go to **Settings** > **Pages**.
+   - Under **Build and deployment** > **Source**, select **GitHub Actions**.
+2. **Push to GitHub**:
    ```bash
-   cd backend
-   npm run seed
+   git add .
+   git commit -m "Migrate budget monitoring system to Firebase"
+   git push origin main
    ```
+3. GitHub Actions will automatically:
+   - Install dependencies (`npm ci --legacy-peer-deps`).
+   - Build Angular with `--base-href /UM-AI-Based-Budget-Utilization-Monitoring-System/`.
+   - Ensure `404.html` SPA fallback routing is in place.
+   - Deploy build artifacts to GitHub Pages at:
+     `https://gpsofficials-im.github.io/UM-AI-Based-Budget-Utilization-Monitoring-System/`
+
+#### Manual Build for GitHub Pages:
+```bash
+cd frontend
+npm install --legacy-peer-deps
+npx ng build --configuration production --base-href /UM-AI-Based-Budget-Utilization-Monitoring-System/
+# Deploy output from dist/ai-budget-monitoring-frontend/browser
+```
+
+---
+
+### Option B: Deploy to Firebase Hosting
+
+Firebase Hosting provides zero-config SSL, CDN caching, and built-in SPA URL rewriting:
+
+1. Build production frontend:
+   ```bash
+   cd frontend
+   npm run build
+   cd ..
+   ```
+2. Deploy to Firebase Hosting:
+   ```bash
+   firebase deploy --only hosting
+   ```
+3. Your application will be live at:
+   `https://ai-budget-monitoring-system.web.app`
+
+---
+
+## 5. Local Development with Firebase Emulators
+
+Run the entire stack locally without touching production databases:
+
+```bash
+# Start Firebase Local Emulator Suite (Firestore, Auth, Storage, Functions)
+firebase emulators:start
+
+# In a separate terminal, launch the Angular development server:
+cd frontend
+npm start
+```
+- Emulator UI: `http://localhost:4000`
+- Angular App: `http://localhost:4200`
 

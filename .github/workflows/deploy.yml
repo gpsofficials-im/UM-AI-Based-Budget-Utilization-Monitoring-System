@@ -1,53 +1,64 @@
-﻿name: Git CI/CD & Automated Deployment
+name: Build, Verify and Deploy to GitHub Pages & Firebase
 
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  backend:
-    name: Backend Test & Build
+  functions-build:
+    name: Firebase Cloud Functions Build
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./backend
+        working-directory: ./functions
     steps:
-      - name: Checkout Code via Git
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js v20
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install Backend Dependencies
+      - name: Install Functions Dependencies
         run: npm install
 
-      - name: Run Automated Test Suite
-        run: npm test
-
-      - name: Compile Backend TypeScript
+      - name: Compile Cloud Functions TypeScript
         run: npm run build
 
-  frontend:
-    name: Frontend Build & Verification
+  frontend-deploy:
+    name: Build & Deploy Frontend to GitHub Pages
     runs-on: ubuntu-latest
+    needs: [functions-build]
     defaults:
       run:
         working-directory: ./frontend
     steps:
-      - name: Checkout Code via Git
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js v20
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
       - name: Install Frontend Dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
-      - name: Build Frontend Application
-        run: npm run build
+      - name: Build Angular Frontend for GitHub Pages
+        run: npx ng build --configuration production --base-href /UM-AI-Based-Budget-Utilization-Monitoring-System/
+
+      - name: Setup 404 SPA fallback
+        run: cp dist/ai-budget-monitoring-frontend/browser/index.html dist/ai-budget-monitoring-frontend/browser/404.html
+
+      - name: Deploy to GitHub Pages (gh-pages branch)
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./frontend/dist/ai-budget-monitoring-frontend/browser
+

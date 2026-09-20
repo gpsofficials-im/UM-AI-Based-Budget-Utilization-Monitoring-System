@@ -156,23 +156,22 @@ export class LoginComponent {
     this.toastService.info('Credentials Applied', `Selected demo account: ${email}`);
   }
 
-  public onSubmit(): void {
+  public async onSubmit(): Promise<void> {
     if (!this.email || !this.password) {
       this.toastService.warning('Validation Error', 'Please enter both email and password');
       return;
     }
 
     this.loading = true;
-    this.authService.login({ email: this.email, password: this.password }).subscribe({
-      next: (res) => {
-        this.loading = false;
-        this.toastService.success('Welcome Back', `Logged in as ${res.data.user.name}`);
-        this.router.navigate(['/dashboard']);
-      },
-      error: (err) => {
-        this.loading = false;
-        // error already toasted by interceptor
-      },
-    });
+    try {
+      const res = await this.authService.login({ email: this.email, password: this.password });
+      this.loading = false;
+      this.toastService.success('Welcome Back', `Logged in as ${res.data.user.name}`);
+      this.router.navigate(['/dashboard']);
+    } catch (err: any) {
+      this.loading = false;
+      this.toastService.error('Authentication Failed', err.message || 'Invalid government credentials');
+    }
   }
 }
+
